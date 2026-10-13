@@ -8,8 +8,11 @@ app.get("/", (req, res) => {
 res.send("Meesho Scraper API is running");
 });
 
-app.get("/health", (req, res) => {
-res.json({ status: "ok" });
+app.get("/debug-env", (req, res) => {
+  res.json({
+    scrapingbeeKeyConfigured:
+      Boolean(process.env.SCRAPINGBEE_API_KEY)
+  });
 });
 
 app.get("/api/product", async (req, res) => {
