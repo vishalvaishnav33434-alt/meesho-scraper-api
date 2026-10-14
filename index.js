@@ -18,7 +18,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Safe environment check
+// Safe environment check - never expose secret values
 app.get("/debug-env", (req, res) => {
   res.status(200).json({
     status: "ok",
@@ -29,21 +29,21 @@ app.get("/debug-env", (req, res) => {
   });
 });
 
-// Meesho product scraper
+// Meesho product API
 app.get("/api/product", async (req, res) => {
   try {
-    const url = req.query.url;
-    const key = process.env.SCRAPINGBEE_API_KEY;
+    const productUrl = req.query.url;
+    const apiKey = process.env.SCRAPINGBEE_API_KEY;
 
-    if (!key) {
+    if (!apiKey) {
       return res.status(500).json({
         error: "SCRAPINGBEE_API_KEY is not configured"
       });
     }
 
     if (
-      typeof url !== "string" ||
-      !/^https:\/\/(www\.)?meesho\.com\//i.test(url)
+      typeof productUrl !== "string" ||
+      !/^https:\/\/(www\.)?meesho\.com\//i.test(productUrl)
     ) {
       return res.status(400).json({
         error: "Provide a valid HTTPS Meesho product URL"
@@ -54,8 +54,8 @@ app.get("/api/product", async (req, res) => {
       "https://app.scrapingbee.com/api/v1/",
       {
         params: {
-          api_key: key,
-          url: url,
+          api_key: apiKey,
+          url: productUrl,
           render_js: "true"
         },
         timeout: 180000,
@@ -120,14 +120,14 @@ app.get("/api/product", async (req, res) => {
       try {
         collectProducts(JSON.parse(json));
       } catch {
-        // Ignore invalid JSON-LD blocks
+        // Ignore invalid product JSON
       }
     }
 
-    if (!products.length) {
+    if (products.length === 0) {
       return res.status(404).json({
         error: "No structured product data found",
-        message: "The product page may have changed its format"
+        message: "The product page format may have changed"
       });
     }
 
@@ -144,10 +144,24 @@ app.get("/api/product", async (req, res) => {
       message:
         error.response?.status === 401 ||
         error.response?.status === 403
-          ? "Check your ScrapingBee API credentials or permissions"
+          ? "Check ScrapingBee credentials or permissions"
           : "The product page could not be retrieved"
     });
   }
+});
+
+// Handle unknown routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found",
+    path: req.path,
+    availableRoutes: [
+      "/",
+      "/health",
+      "/debug-env",
+      "/api/product?url=MEESHO_PRODUCT_URL"
+    ]
+  });
 });
 
 // Start server
